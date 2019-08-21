@@ -1,60 +1,49 @@
 module GeoJSON
 
 import GeoInterface
-import JSON
+import JSON3
 
-export dict2geo,
-    geo2dict,
-    geojson
+export dict2geo, geo2dict
 
 """
-    parse(input::Union{String, IO}, inttype::Type{<:Real}=Int64)
+    read(input::Union{AbstractString, IO, AbstractVector{UInt8}})
 
-Parse a GeoJSON string or IO stream into a GeoInterface object.
+Read a GeoJSON string or IO stream into a GeoInterface object.
 
-See also: [`parsefile`](@ref)
+To read a file, use `GeoJSON.read(read(path))`.
 
 # Examples
 ```julia
-julia> GeoJSON.parse("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
+julia> GeoJSON.read("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
 GeoInterface.Point([30.0, 10.0])
 ```
 """
-parse(input; kwargs...) = dict2geo(JSON.parse(input; kwargs...))
+read(input) = dict2geo(JSON3.read(input))
 
 """
-    parsefile(filename::AbstractString, inttype::Type{<:Real}=Int64)
-
-Parse a GeoJSON file into a GeoInterface object.
-
-See also: [`parse`](@ref)
-"""
-parsefile(filename; kwargs...) = dict2geo(JSON.parsefile(filename; kwargs...))
-
-"""
-    geojson(obj)
+    write(obj)
 
 Create a GeoJSON string from an object that implements the GeoInterface, either
 `AbstractGeometry`, `AbstractFeature` or `AbstractFeatureCollection`.
 
 # Examples
 ```julia
-julia> geojson(Point([30.0, 10.0]))
+julia> GeoJSON.write(Point([30.0, 10.0]))
 \"{\"coordinates\":[30.0,10.0],\"type\":\"Point\"}\"
 ```
 """
-function geojson end
+function write end
 
 for geom in (:AbstractFeatureCollection, :AbstractGeometryCollection, :AbstractFeature,
         :AbstractMultiPolygon, :AbstractPolygon, :AbstractMultiLineString,
         :AbstractLineString, :AbstractMultiPoint, :AbstractPoint)
-    @eval geojson(obj::GeoInterface.$geom) = JSON.json(geo2dict(obj))
+    @eval write(obj::GeoInterface.$geom) = JSON3.write(geo2dict(obj))
 end
 
 """
-    dict2geo(obj::Dict{String, Any})
+    dict2geo(obj::AbstractDict{<:Union{Symbol, String}, Any})
 
-Transform a parsed JSON dictionary to a GeoInterface object.
+Transform a JSON dictionary to a GeoInterface object.
 
 See also: [`geo2dict`](@ref)
 
@@ -64,7 +53,7 @@ julia> dict2geo(Dict("type" => "Point", "coordinates" => [30.0, 10.0]))
 Point([30.0, 10.0])
 ```
 """
-function dict2geo(obj::Dict{String,Any})
+function dict2geo(obj::AbstractDict{<:Union{Symbol, String}, Any})
     t = Symbol(obj["type"])
     if t == :FeatureCollection
         return parseFeatureCollection(obj)
@@ -89,11 +78,12 @@ end
 
 dict2geo(obj::Nothing) = nothing
 
-parseGeometryCollection(obj::Dict{String,Any}) =
-    GeoInterface.GeometryCollection(map(dict2geo,obj["geometries"]))
+parseGeometryCollection(obj::AbstractDict{<:Union{Symbol, String}, Any}) =
+    GeoInterface.GeometryCollection(dict2geo.(obj["geometries"]))
 
-function parseFeature(obj::Dict{String,Any})
-    feature = GeoInterface.Feature(dict2geo(obj["geometry"]), obj["properties"])
+function parseFeature(obj::AbstractDict{<:Union{Symbol, String}, Any})
+    properties = Dict{String, Any}(String(k) => v for (k, v) in obj["properties"])
+    feature = GeoInterface.Feature(dict2geo(obj["geometry"]), properties)
     if haskey(obj, "id")
         feature.properties["featureid"] = obj["id"]
     end
@@ -106,14 +96,14 @@ function parseFeature(obj::Dict{String,Any})
     feature
 end
 
-function parseFeatureCollection(obj::Dict{String,Any})
-    features = GeoInterface.Feature[map(parseFeature,obj["features"])...]
+function parseFeatureCollection(obj::AbstractDict{<:Union{Symbol, String}, Any})
+    features = parseFeature.(obj["features"])
     featurecollection = GeoInterface.FeatureCollection(features)
     if haskey(obj, "bbox")
         featurecollection.bbox = GeoInterface.BBox(obj["bbox"])
     end
     if haskey(obj, "crs")
-        featurecollection.crs = obj["crs"]
+        featurecollection.crs = Dict{String, Any}(String(k) => v for (k, v) in obj["crs"])
     end
     featurecollection
 end
@@ -177,5 +167,7 @@ function geo2dict(obj::GeoInterface.AbstractFeatureCollection)
 end
 
 geo2dict(obj::Nothing) = nothing
+
+include("deprecations.jl")
 
 end  # module

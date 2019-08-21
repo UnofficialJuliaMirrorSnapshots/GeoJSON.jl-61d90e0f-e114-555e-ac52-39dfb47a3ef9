@@ -1,11 +1,11 @@
-using GeoJSON, GeoInterface
+using GeoJSON, GeoInterface, JSON3
 using Test
 
 include(joinpath(@__DIR__, "geojson_samples.jl"))
 
 @testset "GeoJSON" begin
 @testset "A: CRS link" begin
-    feature = GeoJSON.parse(a)
+    feature = GeoJSON.read(a)
     @test feature isa GeoInterface.Feature
     @test GeoInterface.geometry(feature) == nothing
     @test GeoInterface.properties(feature) == feature.properties
@@ -27,7 +27,7 @@ include(joinpath(@__DIR__, "geojson_samples.jl"))
 end
 
 @testset "B: Multipoint" begin
-    feature = GeoJSON.parse(b)
+    feature = GeoJSON.read(b)
     @test feature isa GeoInterface.Feature
     @test GeoInterface.geometry(feature) isa GeoInterface.MultiPoint
     coords = GeoInterface.coordinates(GeoInterface.geometry(feature))
@@ -41,7 +41,7 @@ end
 end
 
 @testset "C: EPSG" begin
-    feature = GeoJSON.parse(c)
+    feature = GeoJSON.read(c)
     @test feature isa GeoInterface.Feature
     @test GeoInterface.geometry(feature) == nothing
     @test GeoInterface.properties(feature) == feature.properties
@@ -49,7 +49,7 @@ end
     @test length(feature.properties) == 3
     @test feature.properties["type"] == "meow"
     @test GeoInterface.crs(feature) == feature.properties["crs"]
-    @test GeoInterface.crs(feature) isa Dict{String,Any}
+    @test GeoInterface.crs(feature) isa JSON3.Object
     @test GeoInterface.crs(feature)["type"] == "name"
     @test GeoInterface.crs(feature)["properties"]["name"] == "urn:ogc:def:crs:EPSG::3785"
     dict = geo2dict(feature)
@@ -61,7 +61,7 @@ end
 end
 
 @testset "D: MultiLineString" begin
-    feature = GeoJSON.parse(d)
+    feature = GeoJSON.read(d)
     @test feature isa GeoInterface.Feature
     @test GeoInterface.geometry(feature) isa GeoInterface.MultiLineString
     @test GeoInterface.geometry(feature) == feature.geometry
@@ -76,7 +76,7 @@ end
 end
 
 @testset "E: HTTP Links" begin
-    feature = GeoJSON.parse(e)
+    feature = GeoJSON.read(e)
     @test feature isa GeoInterface.Feature
     @test GeoInterface.geometry(feature) isa GeoInterface.Point
     @test GeoInterface.geometry(feature) == feature.geometry
@@ -95,7 +95,7 @@ end
 end
 
 @testset "F: Null geometry" begin
-    feature = GeoJSON.parse(f)
+    feature = GeoJSON.read(f)
     @test feature isa GeoInterface.Feature
     @test GeoInterface.geometry(feature) == nothing
     @test GeoInterface.properties(feature) == feature.properties
@@ -106,24 +106,24 @@ end
 end
 
 @testset "G: MultiPolygon" begin
-    featurecollection = GeoJSON.parse(g)
+    featurecollection = GeoJSON.read(g)
     # printing to GeoJSON not yet implemented
-    # @test sprint(print,JSON.json(featurecollection)) ==
+    # @test JSON3.write(featurecollection) ==
     #     "{\"features\":[{\"geometry\":{\"coordinates\":[[[[-117.913883,33.96657],[-117.907767,33.967747],[-117.912919,33.96445],[-117.913883,33.96657]]]],\"type\":\"MultiPolygon\"},\"properties\":{\"addr2\":\"Rowland Heights\",\"cartodb_id\":46,\"addr1\":\"18150 E. Pathfinder Rd.\",\"park\":\"Pathfinder Park\"},\"type\":\"Feature\"}],\"bbox\":[100.0,0.0,105.0,1.0],\"type\":\"FeatureCollection\",\"crs\":{\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::3785\"},\"type\":\"name\"}}"
     @test featurecollection.bbox ≈ [100,0,105,1]
     @test featurecollection.crs == Dict("properties" => Dict("name" => "urn:ogc:def:crs:EPSG::3785"),
-                                         "type" => "name")
+                                        "type" => "name")
 end
 
 @testset "H: Print" begin
-    feature = GeoJSON.parse(h)
+    feature = GeoJSON.read(h)
     # printing to GeoJSON not yet implemented
-    # @test sprint(print,JSON.json(feature)) ==
+    # @test JSON3.write(feature) ==
     #     "{\"geometry\":{\"coordinates\":[[[3.75,9.25],[-130.95,1.52]],[[23.15,-34.25],[-1.35,-4.65],[3.45,77.95]]],\"type\":\"MultiLineString\"},\"properties\":{\"title\":\"Dict 1\"},\"bbox\":[-180.0,-90.0,180.0,90.0],\"type\":\"Feature\"}"
 end
 
 @testset "Multipolygon" begin
-    testobj = GeoJSON.parse(multipolygon)
+    testobj = GeoJSON.read(multipolygon)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     features = GeoInterface.features(testobj)
     @test length(features) == 1
@@ -148,7 +148,7 @@ end
 end
 
 @testset "Realmultipolygon" begin
-    testobj = GeoJSON.parse(realmultipolygon)
+    testobj = GeoJSON.read(realmultipolygon)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     features = GeoInterface.features(testobj)
     @test length(features) == 1
@@ -166,7 +166,7 @@ end
 end
 
 @testset "Polyline" begin
-    testobj = GeoJSON.parse(polyline)
+    testobj = GeoJSON.read(polyline)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     features = GeoInterface.features(testobj)
     @test length(features) == 1
@@ -185,7 +185,7 @@ end
 end
 
 @testset "Point" begin
-    testobj = GeoJSON.parse(point)
+    testobj = GeoJSON.read(point)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     feature = testobj.features[1]
     @test feature.properties["fax"] == "305-571-8347"
@@ -202,7 +202,7 @@ end
 end
 
 @testset "Pointnull" begin
-    testobj = GeoJSON.parse(pointnull)
+    testobj = GeoJSON.read(pointnull)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     feature = testobj.features[1]
     @test feature.properties["featureid"] == "a7vs0i9rnyyx"
@@ -219,7 +219,7 @@ end
 end
 
 @testset "Poly" begin
-    testobj = GeoJSON.parse(poly)
+    testobj = GeoJSON.read(poly)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     feature = testobj.features[1]
     @test feature.properties["featureid"] == "a7ws7wldxold"
@@ -244,7 +244,7 @@ end
 end
 
 @testset "Polyhole" begin
-    testobj = GeoJSON.parse(polyhole)
+    testobj = GeoJSON.read(polyhole)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     feature = testobj.features[1]
     @test feature.properties["featureid"] == "a7ws7wldxold"
@@ -272,7 +272,7 @@ end
 end
 
 @testset "Collection" begin
-    testobj = GeoJSON.parse(collection)
+    testobj = GeoJSON.read(collection)
     @test testobj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     feature = testobj.features[1]
     @test feature.properties["STATE_ABBR"] == "ZZ"
@@ -305,7 +305,7 @@ end
 end
 
 @testset "OSM buildings" begin
-    buildings = GeoJSON.parse(osm_buildings)
+    buildings = GeoJSON.read(osm_buildings)
     @test buildings isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     @test length(buildings.features) == 4
     @test map(typeof,buildings.features) == fill(GeoInterface.Feature,4)
@@ -323,14 +323,15 @@ end
     @test building_dict isa Dict{String,Any}
 
     # printing to GeoJSON not yet implemented
-    # @test GeoJSON.json(buildings) ==
+    # @test GeoJSON.write(buildings) ==
     # """{\"features\":[{\"geometry\":{\"coordinates\":[[[13.42634,52.49533],[13.4266,52.49524],[13.42619,52.49483],[13.42583,52.49495],[13.4259,52.49501],[13.42611,52.49494],[13.4264,52.49525],[13.4263,52.49529],[13.42634,52.49533]]],\"type\":\"Polygon\"},\"properties\":{\"height\":150,\"color\":\"rgb(255,200,150)\"},\"type\":\"Feature\"},{\"geometry\":{\"coordinates\":[[[13.42706,52.49535],[13.42745,52.4952],[13.42745,52.4952],[13.42741,52.49516],[13.42717,52.49525],[13.42692,52.49501],[13.42714,52.49494],[13.42686,52.49466],[13.4265,52.49478],[13.42657,52.49486],[13.42678,52.4948],[13.42694,52.49496],[13.42675,52.49503],[13.42706,52.49535]]],\"type\":\"Polygon\"},\"properties\":{\"height\":130,\"color\":\"rgb(180,240,180)\"},\"type\":\"Feature\"},{\"geometry\":{\"coordinates\":[[[[13.42746,52.4944],[13.42794,52.49494],[13.42799,52.49492],[13.42755,52.49442],[13.42798,52.49428],[13.42846,52.4948],[13.42851,52.49478],[13.428,52.49422],[13.42746,52.4944]]],[[[13.42803,52.49497],[13.428,52.49493],[13.42844,52.49479],[13.42847,52.49483],[13.42803,52.49497]]]],\"type\":\"MultiPolygon\"},\"properties\":{\"height\":120,\"color\":\"rgb(200,200,250)\"},\"type\":\"Feature\"},{\"geometry\":{\"coordinates\":[[[13.42857,52.4948],[13.42918,52.49465],[13.42867,52.49412],[13.4285,52.49419],[13.42896,52.49465],[13.42882,52.49469],[13.42837,52.49423],[13.42821,52.49428],[13.42863,52.49473],[13.42853,52.49476],[13.42857,52.4948]]],\"type\":\"Polygon\"},\"properties\":{\"height\":140,\"color\":\"rgb(150,180,210)\"},\"type\":\"Feature\"}],\"type\":\"FeatureCollection\"}"""
-    # @test GeoJSON.json(buildings) == JSON.json(JSON.parse(osm_buildings))
-    # @test building_dict == JSON.parse(osm_buildings)
+    # @test GeoJSON.write(buildings) == JSON3.write(JSON3.read(osm_buildings))
+    # @test building_dict == JSON3.read(osm_buildings)
 end
 
-@testset "Tech Square: parsefile" begin
-    obj = GeoJSON.parsefile(joinpath(@__DIR__,"tech_square.geojson"))
+@testset "Tech Square: read file" begin
+    path = joinpath(@__DIR__, "tech_square.geojson")
+    obj = GeoJSON.read(read(path))
     @test obj isa GeoInterface.FeatureCollection{GeoInterface.Feature}
     @test length(GeoInterface.features(obj)) == 171
     feature = obj.features[1]
@@ -340,4 +341,13 @@ end
     @test length(feature.geometry.coordinates[1]) == 38
     @test feature.geometry.coordinates[1][1] == feature.geometry.coordinates[1][end]
 end
+
+@testset "Deprecations" begin
+    path = joinpath(@__DIR__, "tech_square.geojson")
+    @test (@test_deprecated repr(GeoJSON.parsefile(path))) == repr(GeoJSON.read(read(path)))
+    dict = GeoJSON.read(g)
+    @test (@test_deprecated repr(GeoJSON.parse(g))) == repr(dict)
+    @test (@test_deprecated GeoJSON.geojson(dict)) == GeoJSON.write(dict)
+end
+
 end # testset "GeoJSON"
